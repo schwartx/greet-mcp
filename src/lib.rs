@@ -1,13 +1,19 @@
 use anyhow::{Context, Result};
 use pyo3::prelude::*;
 use rmcp::{
-    ServiceExt, handler::server::router::tool::ToolRouter, handler::server::wrapper::Parameters,
-    model::*, schemars, serde, tool, tool_handler, tool_router, transport::stdio,
+    ErrorData as McpError, ServiceExt, handler::server::router::tool::ToolRouter,
+    handler::server::wrapper::Parameters, model::*, schemars, serde, tool, tool_handler,
+    tool_router, transport::stdio,
 };
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct GreetRequest {
     number: i32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct MeetRequest {
+    name: String,
 }
 
 pub struct GreetService {
@@ -22,12 +28,24 @@ impl GreetService {
         }
     }
 
-    /// greet tool
-    ///
-    /// Returns input number plus one.
     #[tool(description = "Return input number plus one")]
     fn greet(&self, Parameters(GreetRequest { number }): Parameters<GreetRequest>) -> String {
         (number + 1).to_string()
+    }
+
+    #[tool(description = "Generate a personalized greeting for the given name")]
+    fn meet(
+        &self,
+        Parameters(MeetRequest { name }): Parameters<MeetRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if name.len() < 10 {
+            Ok(CallToolResult::error(vec![Content::text(
+                "Name must be at least 10 characters long",
+            )]))
+        } else {
+            let greeting = format!("Hello, {}! Nice to meet you!", name);
+            Ok(CallToolResult::success(vec![Content::text(greeting)]))
+        }
     }
 }
 
@@ -36,7 +54,7 @@ impl GreetService {
 impl rmcp::ServerHandler for GreetService {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("A simple MCP service that returns a greeting message.".into()),
+            instructions: Some("A simple MCP service that provides greeting and number manipulation tools. Includes 'greet' for incrementing numbers and 'meet' for generating personalized greetings.".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
