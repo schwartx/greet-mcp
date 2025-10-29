@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "greet": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": [
+        "cli/start_server.py"
+      ],
+      "env": {}
+    }
+  }
+}
