@@ -6,13 +6,8 @@ use rmcp::{
     tool_router, transport::stdio,
 };
 
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[derive(serde::Deserialize, schemars::JsonSchema)]
 pub struct GreetRequest {
-    number: i32,
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct MeetRequest {
     name: String,
 }
 
@@ -28,33 +23,32 @@ impl GreetService {
         }
     }
 
-    #[tool(description = "Return input number plus one")]
-    fn greet(&self, Parameters(GreetRequest { number }): Parameters<GreetRequest>) -> String {
-        (number + 1).to_string()
+    #[tool(description = "Greet")]
+    fn greet(&self, Parameters(GreetRequest { name }): Parameters<GreetRequest>) -> String {
+        format!("Hello, {}!", name)
     }
 
-    #[tool(description = "Generate a personalized greeting for the given name")]
+    #[tool(description = "Meet")]
     fn meet(
         &self,
-        Parameters(MeetRequest { name }): Parameters<MeetRequest>,
+        Parameters(GreetRequest { name }): Parameters<GreetRequest>,
     ) -> Result<CallToolResult, McpError> {
         if name.len() < 10 {
             Ok(CallToolResult::error(vec![Content::text(
-                "Name must be at least 10 characters long",
+                "Too short",
             )]))
         } else {
-            let greeting = format!("Hello, {}! Nice to meet you!", name);
+            let greeting = format!("Hello, {}!", name);
             Ok(CallToolResult::success(vec![Content::text(greeting)]))
         }
     }
 }
 
-// Implement the server handler
 #[tool_handler]
 impl rmcp::ServerHandler for GreetService {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("A simple MCP service that provides greeting and number manipulation tools. Includes 'greet' for incrementing numbers and 'meet' for generating personalized greetings.".into()),
+            instructions: Some("Greeting tools".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
@@ -67,12 +61,12 @@ fn start_server(py: Python) -> PyResult<Bound<PyAny>> {
         let service = GreetService::new()
             .serve(stdio())
             .await
-            .context("Failed to start RMCP server with stdio transport")?;
+            .context("Server start failed")?;
 
         service
             .waiting()
             .await
-            .context("Server terminated unexpectedly while waiting")?;
+            .context("Server failed")?;
 
         Ok(())
     })
